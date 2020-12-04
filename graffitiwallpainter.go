@@ -10,7 +10,10 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"runtime"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 var interval time.Duration
@@ -18,36 +21,67 @@ var xOffset int
 var yOffset int
 var imageFile string
 var graffitiFile string
+var explorerURL string
+
+// Build information. Populated at build-time
+var (
+	Version   = "undefined"
+	GitDate   = "undefined"
+	GitCommit = "undefined"
+	BuildDate = "undefined"
+	GoVersion = runtime.Version()
+)
 
 func main() {
+	flag.StringVar(&explorerURL, "explorerURL", "https://beaconcha.in/graffitiwall", "url to graffitiwall page of explorer")
 	flag.DurationVar(&interval, "interval", time.Minute, "interval in which the graffiti-file will be updated")
 	flag.StringVar(&imageFile, "image", "image.png", "path to image")
 	flag.IntVar(&xOffset, "x", 0, "offset x")
 	flag.IntVar(&yOffset, "y", 0, "offset y")
 	flag.StringVar(&graffitiFile, "graffiti", "graffiti.txt", "path to graffiti-file")
 	flag.Parse()
+
+	if interval < time.Second*12 {
+		interval = time.Second * 12
+		logrus.Warnf("setting interval to %v, lower value does not make sense\n", interval)
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"version":      Version,
+		"gitDate":      GitDate,
+		"gitCommit":    GitCommit,
+		"buildDate":    BuildDate,
+		"goVersion":    GoVersion,
+		"explorerURL":  explorerURL,
+		"interval":     interval,
+		"imageFile":    imageFile,
+		"xOffset":      xOffset,
+		"yOffset":      yOffset,
+		"graffitiFile": graffitiFile,
+	}).Info("starting graffitiwallpainter")
+
+	gwWant, err := readImage(imageFile, xOffset, yOffset)
+	if err != nil {
+		logrus.WithError(err).Fatal("couldnt read image")
+	}
+
 	for {
-		err := run()
+		err := run(explorerURL, gwWant)
 		if err != nil {
-			fmt.Println("error", err)
+			logrus.WithError(err).Error("run error")
 		}
 		time.Sleep(interval)
 	}
 }
 
-func run() error {
-	gwIs, err := getGraffitiwall()
-	if err != nil {
-		return err
-	}
-	gwWant, err := readImage(imageFile, xOffset, yOffset)
+func run(explorerURL string, gwWant map[string]string) error {
+	gwIs, err := getGraffitiwall(explorerURL)
 	if err != nil {
 		return err
 	}
 	res := []string{}
 	for xy, color := range gwWant {
 		colorIs, exists := gwIs[xy]
-		// fmt.Println(color, colorIs)
 		if color == "ffffff" && !exists {
 			continue
 		}
@@ -55,12 +89,16 @@ func run() error {
 			res = append(res, fmt.Sprintf("graffitiwall:%s:#%s", xy, color))
 		}
 	}
+	if len(res) == 0 {
+		logrus.Infof("all pixels match the image!")
+		return nil
+	}
 	g := res[rand.Intn(len(res))]
 	err = ioutil.WriteFile(graffitiFile, []byte(g), 0644)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("current graffiti: %v, pixels left: %v\n", g, len(res))
+	logrus.WithFields(logrus.Fields{"pixelsLeft": len(res), "graffiti": g}).Infof("updated graffiti")
 	return nil
 }
 
@@ -79,9 +117,8 @@ func readImage(file string, offsetX, offsetY int) (map[string]string, error) {
 
 	bounds := src.Bounds()
 	w, h := bounds.Max.X, bounds.Max.Y
-	// fmt.Println(w, h)
 	if w+offsetX > 1000 || h+offsetY > 1000 {
-		return nil, fmt.Errorf("image or offset is too big")
+		return nil, fmt.Errorf("image or offset is too big (%v, %v, %v, %v)", w, h, offsetX, offsetY)
 	}
 	for x := 0; x < w; x++ {
 		for y := 0; y < h; y++ {
@@ -94,10 +131,9 @@ func readImage(file string, offsetX, offsetY int) (map[string]string, error) {
 	return res, nil
 }
 
-func getGraffitiwall() (map[string]string, error) {
-	url := "https://beaconcha.in/graffitiwall"
+func getGraffitiwall(explorerURL string) (map[string]string, error) {
 	client := &http.Client{Timeout: time.Second * 10}
-	resp, err := client.Get(url)
+	resp, err := client.Get(explorerURL)
 	if err != nil {
 		return nil, err
 	}
