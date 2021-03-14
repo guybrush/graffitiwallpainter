@@ -11,6 +11,7 @@ import (
 	"os"
 	"regexp"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -22,6 +23,7 @@ var yOffset int
 var imageFile string
 var graffitiFile string
 var explorerURL string
+var prysmYamlFile string
 
 // Build information. Populated at build-time
 var (
@@ -39,6 +41,7 @@ func main() {
 	flag.IntVar(&xOffset, "x", 0, "offset x")
 	flag.IntVar(&yOffset, "y", 0, "offset y")
 	flag.StringVar(&graffitiFile, "graffiti", "graffiti.txt", "path to graffiti-file")
+	flag.StringVar(&prysmYamlFile, "prysmYamlFile", "", "if set, write all pixels to file and exit")
 	flag.Parse()
 
 	if interval < time.Second*12 {
@@ -65,6 +68,14 @@ func main() {
 		logrus.WithError(err).Fatal("couldnt read image")
 	}
 
+	if prysmYamlFile != "" {
+		err := writePrysmYaml(prysmYamlFile, gwWant)
+		if err != nil {
+			logrus.WithError(err).Error("run error")
+		}
+		return
+	}
+
 	for {
 		err := run(explorerURL, gwWant)
 		if err != nil {
@@ -72,6 +83,19 @@ func main() {
 		}
 		time.Sleep(interval)
 	}
+}
+
+func writePrysmYaml(f string, gwWant map[string]string) error {
+	res := []string{"random:"}
+	for xy, color := range gwWant {
+		res = append(res, fmt.Sprintf("\"graffitiwall:%s:#%s\"", xy, color))
+	}
+	resStr := strings.Join(res, "\n  - ")
+	err := ioutil.WriteFile(f, []byte(resStr), 0644)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func run(explorerURL string, gwWant map[string]string) error {
