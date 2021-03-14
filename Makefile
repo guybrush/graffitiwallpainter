@@ -1,7 +1,7 @@
 GITCOMMIT=`git describe --always`
 VERSION=$$(git describe 2>/dev/null || echo "0.0.0-${GITCOMMIT}")
 GITDATE=`TZ=UTC git show -s --date=iso-strict-local --format=%cd HEAD`
-GITDATESHORT=`TZ=UTC git show -s --date=iso-strict-local --format=%cd HEAD | sed 's/[-T:]//g' | sed 's/\(+.*\)$//g'`
+GITDATESHORT=$$(TZ=UTC git show -s --date=iso-strict-local --format=%cd HEAD | sed 's/[-T:]//g' | sed 's/\(+.*\)$$//g')
 BUILDDATE=`date -u +"%Y-%m-%dT%H:%M:%S%:z"`
 BUILDDATESHORT=`date -u +"%Y%m%d%H%M%S"`
 PACKAGE=github.com/guybrush/graffitiwallpainter
