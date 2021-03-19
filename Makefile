@@ -7,7 +7,7 @@ BUILDDATESHORT=`date -u +"%Y%m%d%H%M%S"`
 PACKAGE=github.com/guybrush/graffitiwallpainter
 LDFLAGS="-X main.Version=${VERSION} -X main.BuildDate=${BUILDDATE} -X main.GitCommit=${GITCOMMIT} -X main.GitDate=${GITDATE}"
 DOCKERIMAGE="guybrush/graffitiwallpainter"
-BINARY=bin/graffitipainter
+BINARY=bin/graffitiwallpainter
 
 all: test build
 
