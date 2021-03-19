@@ -16,7 +16,7 @@ beaconcha.in/graffitiwall -> graffitiwallpainter -> graffiti.yml -> validator
 
 ```bash
 # install the binary
-go install github.com/guybrush/graffitiwallpainter
+go install github.com/guybrush/graffitiwallpainter@latest
 # offset x:10 y:10 only fetch once
 graffitiwallpainter -image /path/to/image.png -graffiti /path/to/graffiti-file.yml -x 10 -y 10 -once
 # draw on pyrmont-graffitiwall
