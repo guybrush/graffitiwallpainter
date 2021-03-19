@@ -34,8 +34,8 @@ var (
 )
 
 func main() {
-	flag.StringVar(&explorerURL, "explorerURL", "https://beaconcha.in/graffitiwall", "url to graffitiwall page of explorer")
-	flag.DurationVar(&interval, "interval", time.Minute, "interval in which the graffiti-file will be updated")
+	flag.StringVar(&explorerURL, "url", "https://beaconcha.in/graffitiwall", "url to graffitiwall page of explorer")
+	flag.DurationVar(&interval, "interval", time.Duration(32*12)*time.Second, "interval in which the graffiti-file will be updated")
 	flag.StringVar(&imageFile, "image", "image.png", "path to image")
 	flag.IntVar(&xOffset, "x", 0, "offset x")
 	flag.IntVar(&yOffset, "y", 0, "offset y")
