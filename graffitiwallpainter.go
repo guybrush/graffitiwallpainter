@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"image/png"
 	"io/ioutil"
-	"math/rand"
 	"net/http"
 	"os"
 	"regexp"
@@ -23,7 +22,7 @@ var yOffset int
 var imageFile string
 var graffitiFile string
 var explorerURL string
-var prysmYamlFile string
+var runOnce bool
 
 // Build information. Populated at build-time
 var (
@@ -41,7 +40,7 @@ func main() {
 	flag.IntVar(&xOffset, "x", 0, "offset x")
 	flag.IntVar(&yOffset, "y", 0, "offset y")
 	flag.StringVar(&graffitiFile, "graffiti", "graffiti.txt", "path to graffiti-file")
-	flag.StringVar(&prysmYamlFile, "prysmYamlFile", "", "if set, write all pixels to file and exit")
+	flag.BoolVar(&runOnce, "once", false, "if set, write all pixels to file and exit")
 	flag.Parse()
 
 	if interval < time.Second*12 {
@@ -68,34 +67,16 @@ func main() {
 		logrus.WithError(err).Fatal("couldnt read image")
 	}
 
-	if prysmYamlFile != "" {
-		err := writePrysmYaml(prysmYamlFile, gwWant)
-		if err != nil {
-			logrus.WithError(err).Error("run error")
-		}
-		return
-	}
-
 	for {
 		err := run(explorerURL, gwWant)
 		if err != nil {
 			logrus.WithError(err).Error("run error")
 		}
+		if runOnce {
+			return
+		}
 		time.Sleep(interval)
 	}
-}
-
-func writePrysmYaml(f string, gwWant map[string]string) error {
-	res := []string{"random:"}
-	for xy, color := range gwWant {
-		res = append(res, fmt.Sprintf("\"graffitiwall:%s:#%s\"", xy, color))
-	}
-	resStr := strings.Join(res, "\n  - ")
-	err := ioutil.WriteFile(f, []byte(resStr), 0644)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func run(explorerURL string, gwWant map[string]string) error {
@@ -103,26 +84,25 @@ func run(explorerURL string, gwWant map[string]string) error {
 	if err != nil {
 		return err
 	}
-	res := []string{}
+	res := []string{"random:\n"}
 	for xy, color := range gwWant {
 		colorIs, exists := gwIs[xy]
 		if color == "ffffff" && !exists {
 			continue
 		}
 		if !exists || colorIs != color {
-			res = append(res, fmt.Sprintf("graffitiwall:%s:#%s", xy, color))
+			res = append(res, fmt.Sprintf("  - \"graffitiwall:%s:#%s\"\n", xy, color))
 		}
 	}
 	if len(res) == 0 {
 		logrus.Infof("all pixels match the image!")
 		return nil
 	}
-	g := res[rand.Intn(len(res))]
-	err = ioutil.WriteFile(graffitiFile, []byte(g), 0644)
+	err = ioutil.WriteFile(graffitiFile, []byte(strings.Join(res, "")), 0644)
 	if err != nil {
 		return err
 	}
-	logrus.WithFields(logrus.Fields{"pixelsLeft": len(res), "graffiti": g}).Infof("updated graffiti")
+	logrus.WithFields(logrus.Fields{"pixelsLeft": len(res)}).Infof("updated graffiti")
 	return nil
 }
 
